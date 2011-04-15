@@ -30,7 +30,10 @@ $app->get('/', function() use ($app) {
     $res = $dbh->query('SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT 1 OFFSET '.$num);
     $row = $res->fetch();
     return '<!DOCTYPE html>
-<html><head>  <style type="text/css" media="all">
+        <html><head>  
+        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+
+        <style type="text/css" media="all">
     html, body {
       height: 100%
     }
