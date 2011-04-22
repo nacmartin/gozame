@@ -2,36 +2,34 @@
 error_reporting(E_ALL);
 
 require __DIR__.'/silex.phar';
-use Silex\Application;
 
-function use_db(){
-    $dbh = new PDO('sqlite:'.__DIR__.'/db/bookmarks.db3');
-    $dbh->exec("CREATE TABLE bookmarks (id INTEGER PRIMARY KEY, bookmark VARCHAR(255), created_at TIMESTAMP)");
+$app = new Silex\Application();
+
+$app['db'] = $app->share(function () {
+    $dbh = new PDO('sqlite:'.__DIR__.'/db/bookmarks.db3', null, null, array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+    $dbh->exec("CREATE TABLE IF NOT EXISTS bookmarks (id INTEGER PRIMARY KEY, bookmark VARCHAR(255), created_at TIMESTAMP)");
     return $dbh;
-}
+});
 
-$app = new Application();
 $app->get('/new', function() use ($app) { 
     $request = $app['request'];
     $url = $request->get('url');
     $url = urldecode($url);
-    $dbh = use_db();
-    $dbh->exec("INSERT INTO bookmarks (bookmark, created_at) VALUES ('".$url."', DATETIME('NOW'))");
-    return "$url Bookmarked"; 
+    $app['db']->prepare("INSERT INTO bookmarks (bookmark, created_at) VALUES (?, DATETIME('NOW'))")->execute(array($url));
+    return $app->escape($url)." Bookmarked";
 }); 
 
 $app->get('/', function() use ($app) { 
     $request = $app['request'];
     $num = $request->get('num');
-    $dbh = use_db();
-    $rcount = $dbh->query('SELECT COUNT (*) as num FROM bookmarks');
+    $rcount = $app['db']->query('SELECT COUNT (*) as num FROM bookmarks');
     $count = $rcount->fetch();
     $num = ($num && $num <= $count['num']) ? $num : 0;
-    $res = $dbh->query('SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT 1 OFFSET '.$num);
+    $res = $app['db']->query('SELECT * FROM bookmarks ORDER BY created_at DESC LIMIT 1 OFFSET '.$num);
     $row = $res->fetch();
     return '<!DOCTYPE html>
         <html><head>  
-        <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
+        <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
 
         <style type="text/css" media="all">
     html, body {
@@ -87,7 +85,7 @@ $app->get('/', function() use ($app) {
 </head>
 <body>
 
-<div id="topbar"><div id="logo"><img src="/logo.png"/></div><div id="nav">'.($num > $count['num']?'':'<a href="/?num='.($num+1).'">«</a>').($num <= 0?'':'<a href="/?num='.($num-1).'">»</a>').'</div><div id="title"><a href="'.$row['bookmark'].'">'.$row['bookmark'].'</a>&nbsp;'.$row['created_at'].'</div></div><iframe id="iframe" src="'.$row['bookmark'].'" frameborder=0 noresize="noresize"> </iframe></body></html>'; 
+<div id="topbar"><div id="logo"><img src="logo.png"/></div><div id="nav">'.($num > $count['num']?'':'<a href="?num='.($num+1).'">«</a>').($num <= 0?'':'<a href="?num='.($num-1).'">»</a>').'</div><div id="title"><a href="'.$row['bookmark'].'">'.$row['bookmark'].'</a>&nbsp;'.$row['created_at'].'</div></div><iframe id="iframe" src="'.$row['bookmark'].'" frameborder=0 noresize="noresize"> </iframe></body></html>'; 
 }); 
 // definitions
 
